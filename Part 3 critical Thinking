@@ -1,0 +1,77 @@
+### Part 3: Critical Thinking
+
+#### Ethics & Bias (10 points)
+
+1. Impact of Biased Training Data on Patient Outcomes  
+Biased training data could lead to:
+- Disparate Care Delivery**: Underrepresented groups (e.g., minorities, low-income patients) might receive lower-risk predictions, delaying interventions.
+- Amplification of Health Disparities**: Models could systematically underestimate risk for populations with limited healthcare access (e.g., rural patients), worsening existing inequities.
+- Life-Threatening Consequences**: False negatives (high-risk patients misclassified as low-risk) could deny critical post-discharge care, increasing mortality.
+
+Example: If data over-represents affluent urban patients, the model might underperform for rural patients with limited EHR history, leading to preventable readmissions.
+
+2. Mitigation Strategy: Adversarial Debiasing  
+- How it works: Train the model to simultaneously predict outcomes while *preventing* predictions based on sensitive attributes (race, gender, ZIP code).  
+- Implementation:  
+  ```python
+  from aif360.algorithms.inprocessing import AdversarialDebiasing
+  
+  debiased_model = AdversarialDebiasing(
+      scope_name='debiased_model',
+      adversary_loss_weight=0.5,
+      num_epochs=200,
+      debias=True,
+      sensitive_attribute='zip_code'
+  )
+  debiased_model.fit(X_train, y_train)
+  ```
+- Why effective: Actively suppresses bias during training rather than post-hoc correction.
+
+---
+
+#### Trade-offs (10 points)
+
+1. Interpretability vs. Accuracy in Healthcare  
+| Interpretability | Accuracy |
+|----------------------|--------------|
+| • Essential for clinician trust<br>• Required for regulatory compliance (FDA, HIPAA)<br>• Enables error diagnosis (e.g., "Why did we flag this patient?") |  Higher accuracy saves lives<br>• Complex models (NNs, XGBoost) capture intricate patterns<br>• May detect subtle risk factors humans miss |
+  
+Critical Balance:  
+- Use interpretable models (logistic regression) for high-stakes decisions (e.g., ICU triage)  
+- Deploy **high-accuracy models (XGBoost)** with **explainability wrappers (SHAP/LIME) for operational workflows:  
+  ```python
+  import shap
+  explainer = shap.TreeExplainer(model)
+  shap_values = explainer.shap_values(X_patient)
+  ```  
+  Example: A 5% accuracy gain might prevent 50 readmissions/year in a 10,000-patient hospital, but only if clinicians trust the predictions.
+
+2. Impact of Limited Computational Resources  
+- Model Choice Shift:  
+  - Avoid deep learning (requires GPUs)  
+  - Prefer lightweight algorithms:  
+    ```python
+    from sklearn.ensemble import ExtraTreesClassifier  # Faster than RF
+    
+    model = ExtraTreesClassifier(
+        n_estimators=50,  # Fewer trees
+        max_depth=5,       # Shallower trees
+        bootstrap=False    # Reduce memory
+    )
+    ```
+- Infrastructure Adaptations:  
+  - Model Compression: Quantize models to 8-bit integers  
+  - Edge Deployment: Run inference on local devices (tablets)  
+  -Cloud Offloading: Batch-process predictions overnight
+
+Example: A rural clinic could use a pruned logistic regression model (5MB RAM) on low-cost hardware while maintaining 80%+ accuracy.
+
+---
+
+### Key Takeaways
+1. Bias Mitigation: Proactive fairness constraints > post-processing  
+2. Interpretability: Accuracy without explainability is clinically unusable  
+3. Resource Constraints: Simpler models can deliver 90% of benefits at 10% computational cost  
+
+Healthcare AI Mantra:  
+"Favor auditable mediocrity over black-box excellence in life-critical systems."
